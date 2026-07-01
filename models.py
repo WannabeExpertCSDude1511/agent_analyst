@@ -10,6 +10,7 @@ class TaskRequest(BaseModel):
         ...,
         description="The task the agent should perform."
     )
+    target: str = Field(..., description="Target URL.")
     context: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional data for the task."
@@ -20,11 +21,12 @@ class TaskRequest(BaseModel):
 
 class Finding(BaseModel):
     tool: str
+    type: str = ""
     severity: str
     title: str
     description: str
     evidence: str
-
+    location: str = ""
 
 class TaskResponse(BaseModel):
     summary: str
