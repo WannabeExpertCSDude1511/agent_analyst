@@ -15,13 +15,14 @@ ALLOWED tools for agent-analyst (the allowlist):
 import json
 import logging
 import os
+import socket
 import urllib.error
 import urllib.request
 
 logger = logging.getLogger("agent-analyst.selector")
 
 OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 ALLOWED_TOOLS = [
     "trufflehog",
@@ -56,28 +57,37 @@ def _ask_ollama(prompt: str) -> list[str] | None:
     Ask the local Ollama model which tools to run.
     Returns a list of tool names, or None if Ollama is unavailable.
     """
-    system_message = f"""You are a security tool selector for a passive web reconnaissance agent.
-Your job is to read a security task prompt and decide which tools to run.
+    system_message = """You are a security tool selector.
 
-Available tools:
-{TOOL_DESCRIPTIONS}
+Return ONLY a JSON array.
 
-Rules:
-- Only return tools from the list above.
-- Never suggest active/exploit tools like sqlmap, nmap, nikto.
-- Return ONLY a valid JSON array of tool name strings, nothing else.
-- Example output: ["trufflehog", "secretfinder", "linkfinder"]
-- Always include "httpx" to verify the target is alive.
+Allowed tools:
+[
+"trufflehog",
+"secretfinder",
+"linkfinder",
+"gitleaks",
+"git_secrets",
+"mapextractor",
+"jshole",
+"nuclei_passive",
+"httpx_enrichment",
+"httpx"
+]
+
+Always include "httpx".
+
+Do not explain your reasoning.
+Do not output markdown.
 """
 
-    user_message = f"Security task: {prompt}\n\nReturn only the JSON array of tool names."
+    user_message = prompt
 
     payload = json.dumps({
         "model": OLLAMA_MODEL,
         "prompt": user_message,
         "system": system_message,
         "stream": False,
-        "format": "json",
     }).encode("utf-8")
 
     try:
@@ -87,10 +97,10 @@ Rules:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             result = json.loads(resp.read().decode())
             raw = result.get("response", "").strip()
-
+            raw = raw.replace("```json", "").replace("```", "").strip()
             # Parse the JSON array Ollama returned
             tool_list = json.loads(raw)
 
@@ -101,8 +111,8 @@ Rules:
                 logger.info("Ollama selected tools: %s", valid)
                 return valid
 
-    except urllib.error.URLError:
-        logger.warning("Ollama not reachable at %s — using keyword fallback", OLLAMA_URL)
+    except (urllib.error.URLError, TimeoutError, socket.timeout) as e:
+        logger.warning("Ollama unavailable or timed out (%s). Using keyword fallback.", e)
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning("Could not parse Ollama response: %s — using keyword fallback", e)
 
