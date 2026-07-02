@@ -4,10 +4,25 @@ from services.task_service import TaskService
 
 router = APIRouter()
 
-
 @router.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "agent_id": "agent-analyst",
+        "status": "ok",
+        "tool_allowlist": [
+            "trufflehog",
+            "secretfinder",
+            "linkfinder",
+            "gitleaks",
+            "git_secrets",
+            "mapextractor",
+            "jshole",
+            "nuclei_passive",
+            "httpx_enrichment",
+            "httpx"
+        ],
+        "mock_mode": True
+    }
 
 
 @router.post("/agents/agent-analyst/tasks")
