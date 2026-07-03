@@ -28,6 +28,8 @@ from services.parser      import parse_context
 from services.selector    import select_tools
 from services.runner      import run_tools
 from services.aggregator  import aggregate
+from services.selector import select_next_tool
+from services.runner import run_tool
 
 logger = logging.getLogger("agent-analyst.task_service")
 
@@ -51,13 +53,46 @@ class TaskService:
             # Step 1: parse what Mapper sent us
             context_data = parse_context(request.context or {})
             logger.info("Surface from context: %s", context_data)
-
+            '''
             # Step 2: use Ollama (or keyword fallback) to pick tools
             tools = select_tools(request.prompt)
             logger.info("Selected tools: %s", tools)
 
             # Step 3: run the tools and collect findings
             findings = run_tools(tools, target, context_data)
+            '''
+            planner_feedback = []
+            findings = []
+            used_tools = []
+            MAX_STEPS = 8
+            for step in range(MAX_STEPS):
+                 decision = select_next_tool(
+                      request.prompt,
+                      findings,
+                      used_tools,
+                      planner_feedback,
+                      )
+                 if decision["finish"]:
+                      logger.info(
+                           "Planner finished after %d step(s).",
+                           step,
+                           )
+                      break
+                 tool = decision["tool"]
+                 if decision.get("tool") is None:
+                       planner_feedback.append(decision["feedback"])
+                       continue
+                 logger.info(
+                      "Planner selected: %s",
+                      tool,
+                      )
+                 result = run_tool(
+                      tool,
+                      target,
+                      context_data,
+                      )
+                 findings.extend(result)
+                 used_tools.append(tool)
 
             # Step 4: build summary + structured response
             response_body = aggregate(findings)

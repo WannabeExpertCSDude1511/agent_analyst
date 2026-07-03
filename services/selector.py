@@ -157,16 +157,106 @@ def _keyword_fallback(prompt: str) -> list[str]:
     return result
 
 
-def select_tools(prompt: str) -> list[str]:
+def select_next_tool(
+    prompt: str,
+    findings: list[dict],
+    used_tools: list[str],
+    planner_feedback: list[str],
+) -> dict:
     """
-    Main entry point. Tries Ollama first, falls back to keywords.
-    Always returns a non-empty list of allowlisted tool names.
-    """
-    tools = _ask_ollama(prompt)
-    if tools:
-        # Make sure httpx is always included even if Ollama forgot it
-        if "httpx" not in tools:
-            tools.insert(0, "httpx")
-        return tools
+    Decide the next tool to execute.
 
-    return _keyword_fallback(prompt)
+    Returns:
+    {
+        "finish": bool,
+        "tool": "<tool name>"
+    }
+    """
+
+    system_message = f"""
+You are a passive security analysis planner.
+
+Available tools:
+
+{TOOL_DESCRIPTIONS}
+
+Return ONLY JSON.
+
+If another tool is needed:
+
+{{
+    "finish": false,
+    "tool": "<tool name>"
+}}
+
+If analysis is complete:
+
+{{
+    "finish": true
+}}
+"""
+
+    user_message = f"""
+User request:
+{prompt}
+
+Already executed:
+{used_tools}
+
+Planner feedback:
+{planner_feedback}
+
+Current findings:
+{json.dumps(findings, indent=2)}
+"""
+
+    payload = json.dumps({
+        "model": OLLAMA_MODEL,
+        "prompt": user_message,
+        "system": system_message,
+        "stream": False,
+    }).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            f"{OLLAMA_URL}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            result = json.loads(resp.read().decode())
+            raw = result["response"].replace("```json", "").replace("```", "").strip()
+
+            decision = json.loads(raw)
+
+            if decision.get("finish"):
+                return {"finish": True}
+
+            tool = decision.get("tool")
+
+            if tool not in ALLOWED_TOOLS:
+                return {
+                    "finish": False,
+                    "tool": None,
+                    "feedback": f"'{tool}' is not an allowed tool. Choose only from: {', '.join(ALLOWED_TOOLS)}",
+                    }
+
+            return {
+                "finish": False,
+                "tool": tool,
+            }
+
+    except Exception as e:
+        logger.warning("Planner failed: %s", e)
+
+    remaining = [t for t in _keyword_fallback(prompt) if t not in used_tools]
+
+    if remaining:
+        return {
+            "finish": False,
+            "tool": remaining[0],
+        }
+
+    return {"finish": True}
