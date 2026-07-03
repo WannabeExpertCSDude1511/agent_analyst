@@ -25,7 +25,7 @@ import logging
 import traceback
 
 from services.parser      import parse_context
-from services.selector    import select_tools
+#from services.selector    import select_tools
 from services.runner      import run_tools
 from services.aggregator  import aggregate
 from services.selector import select_next_tool
