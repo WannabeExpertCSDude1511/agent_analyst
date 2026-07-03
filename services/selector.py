@@ -136,8 +136,8 @@ def _keyword_fallback(prompt: str) -> list[str]:
         selected.update(["jshole"])
 
     if not selected:
-        # Default: run the full passive suite
-        selected.update([t for t in ALLOWED_TOOLS if t != "httpx"])
+        logger.info("Keyword fallback found no matching tools.")
+        return []
 
     # Always include httpx for liveness check
     selected.add("httpx")
