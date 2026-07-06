@@ -16,6 +16,7 @@ is logged and that tool returns [] for that item.
 
 import logging
 import os
+import json
 
 from tools.mock_tools import MOCK_TOOL_MAP
 from tools.wrappers import REAL_TOOL_MAP
@@ -82,7 +83,11 @@ def run_tool(tool_name: str, target: str, context_data: dict) -> list[dict]:
         except Exception as e:
             logger.error("%s failed on %s: %s", tool_name, item, e)
 
-    logger.info("%s produced %d findings", tool_name, len(findings))
+    logger.info(
+    "%s produced %d finding(s):\n",
+    tool_name,
+    len(findings),
+    )
     return findings   
 
 

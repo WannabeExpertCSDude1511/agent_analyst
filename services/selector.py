@@ -185,32 +185,45 @@ Available tools:
 
 Only respond to requests related to passive security analysis.
 
-If the request is unrelated to passive security analysis, return:
+First, determine whether the user's request is related to passive security analysis.
+
+If it is NOT related, immediately return:
 
 {{
     "unsupported": true
 }}
-Use the minimum number of tools necessary.
 
-Do NOT select another tool unless it is likely to produce meaningful new information.
+Do not evaluate tool selection or whether the analysis is complete for unrelated requests.
 
-If the current findings are sufficient to answer the user's request, prefer finishing instead of calling another tool.
+Only if the request IS related to passive security analysis should you decide whether to execute another tool or finish.
+
+Select exactly one tool at a time.
+
+Never select a tool that has already been executed.
+
+Base each decision on the user's request, the findings collected so far, the tools already executed, and any planner feedback.
+
+Prefer selecting another allowed tool whenever there is a reasonable possibility that it will produce additional meaningful passive security information.
+
+Do not finish simply because some findings have already been collected.
+Do not finish if there are zero used tools.
 
 
-If another tool is needed:
+Only return "finish": true when you are confident that no remaining allowed tool is likely to provide any relevant or meaningful additional passive security findings. If there is even a slight chance they may provide meaningful additional information, do not finish.
+
+If another tool should be executed, return:
 
 {{
     "finish": false,
     "tool": "<tool name>"
 }}
 
-If the analysis is complete:
+Otherwise, return:
 
 {{
     "finish": true
 }}
-
-Never return empty. return ONLY valid JSON.
+Never return empty. Return ONLY valid JSON
 """
 
     user_message = f"""
@@ -226,12 +239,22 @@ Planner feedback:
 Current findings:
 {json.dumps(findings, indent=2)}
 
-Decide whether another tool is likely to produce meaningful new information.
+Based on the user's request, the findings collected so far, the tools already executed, and any planner feedback, determine the single best next action.
 
-If YES, return:
+If the user's request is not related to passive security analysis, return {{"unsupported": true}} immediately.
+
+Prefer executing another allowed tool whenever it could reasonably produce additional meaningful passive security information.
+
+Do not finish merely because previous tools produced findings.
+Do not finish if there are 0 used tools.
+Do not finish if there is even a slight chance that another allowed tool could reasonably produce additional meaningful passive security information.
+
+If another tool should be executed, return:
+
 {{"finish": false, "tool": "<tool name>"}}
 
-If NO, return:
+Only if you are confident that no remaining allowed tool is likely to produce meaningful additional passive security findings, return:
+
 {{"finish": true}}
 """
 
@@ -259,6 +282,7 @@ If NO, return:
 
             if not raw:
                 raise ValueError("Empty response from LLM")
+            logger.info("Raw planner response:\n%s", raw)    
             decision = json.loads(raw)
             if decision.get("unsupported"):
                 return {
