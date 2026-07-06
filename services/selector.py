@@ -94,10 +94,13 @@ Do not output markdown.
         req = urllib.request.Request(
             f"{OLLAMA_URL}/api/generate",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY', '')}",
+            },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=300) as resp:
             result = json.loads(resp.read().decode())
             raw = result.get("response", "").strip()
             raw = raw.replace("```json", "").replace("```", "").strip()
@@ -180,7 +183,7 @@ Available tools:
 
 {TOOL_DESCRIPTIONS}
 
-Return ONLY JSON.
+Return ONLY JSON. Nothing else.
 
 If another tool is needed:
 
@@ -194,6 +197,8 @@ If analysis is complete:
 {{
     "finish": true
 }}
+
+Never return empty. Always return valid JSON
 """
 
     user_message = f"""
@@ -206,8 +211,9 @@ Already executed:
 Planner feedback:
 {planner_feedback}
 
-Current findings:
-{json.dumps(findings, indent=2)}
+Current findings summary:
+- Total findings so far: {len(findings)}
+- Tools used: {used_tools}
 """
 
     payload = json.dumps({
@@ -221,7 +227,10 @@ Current findings:
         req = urllib.request.Request(
             f"{OLLAMA_URL}/api/generate",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY', '')}",
+            },
             method="POST",
         )
 
@@ -229,14 +238,17 @@ Current findings:
             result = json.loads(resp.read().decode())
             raw = result["response"].replace("```json", "").replace("```", "").strip()
 
+            if not raw:
+                raise ValueError("Empty response from LLM")
             decision = json.loads(raw)
+            logger.info("Cloud LLM decision: %s", decision)
 
             if decision.get("finish"):
                 return {"finish": True}
 
             tool = decision.get("tool")
 
-            if tool not in ALLOWED_TOOLS:
+            if not tool or tool not in ALLOWED_TOOLS:
                 return {
                     "finish": False,
                     "tool": None,
