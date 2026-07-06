@@ -16,6 +16,7 @@ is logged and that tool returns [] for that item.
 
 import logging
 import os
+import json
 
 from tools.mock_tools import MOCK_TOOL_MAP
 from tools.wrappers import REAL_TOOL_MAP
@@ -57,39 +58,45 @@ def _build_surface(target: str, context_data: dict) -> list[str]:
 
     return surface
 
+def run_tool(tool_name: str, target: str, context_data: dict) -> list[dict]:
+    """
+    Run a single tool across the available surface.
+    """
 
-def run_tools(tool_names: list[str], target: str, context_data: dict) -> list[dict]:
-    """
-    Run each selected tool against each surface item.
-    Returns a flat list of all findings across all tools and items.
-    """
-    # Enforce allowlist — never run a tool not in our list
-    safe_tools = [t for t in tool_names if t in ALLOWED_TOOLS]
-    if len(safe_tools) < len(tool_names):
-        blocked = set(tool_names) - set(safe_tools)
-        logger.warning("Blocked tools not in allowlist: %s", blocked)
+    if tool_name not in ALLOWED_TOOLS:
+        logger.warning("Blocked tool not in allowlist: %s", tool_name)
+        return []
+
+    fn = _get_tool_fn(tool_name)
+    if fn is None:
+        logger.warning("No implementation found for tool: %s", tool_name)
+        return []
 
     surface = _build_surface(target, context_data)
-    logger.info("Running %d tool(s) across %d surface item(s)", len(safe_tools), len(surface))
-    logger.info("Mode: %s", "MOCK" if MOCK_MODE else "REAL")
+    findings = []
 
+    for item in surface:
+        try:
+            results = fn(item, context_data)
+            if results:
+                findings.extend(results)
+        except Exception as e:
+            logger.error("%s failed on %s: %s", tool_name, item, e)
+
+    logger.info(
+    "%s produced %d finding(s):\n",
+    tool_name,
+    len(findings),
+    )
+    return findings   
+
+
+def run_tools(tool_names: list[str], target: str, context_data: dict) -> list[dict]:
     all_findings = []
 
-    for tool_name in safe_tools:
-        fn = _get_tool_fn(tool_name)
-        if fn is None:
-            logger.warning("No implementation found for tool: %s", tool_name)
-            continue
+    for tool in tool_names:
+        all_findings.extend(
+            run_tool(tool, target, context_data)
+        )
 
-        for item in surface:
-            try:
-                results = fn(item, context_data)
-                if results:
-                    all_findings.extend(results)
-                    logger.info("%s found %d finding(s) on %s", tool_name, len(results), item)
-            except Exception as e:
-                # One tool failing on one item should NOT crash everything
-                logger.error("%s failed on %s: %s", tool_name, item, e)
-
-    logger.info("Total findings: %d", len(all_findings))
     return all_findings

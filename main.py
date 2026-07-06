@@ -1,3 +1,18 @@
+import sys
+import os
+import logging
+
+# 1. Fix the path so Python finds your 'services' folder
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+# 2. Turn on INFO logs so you can see Ollama's brain working!
+logging.basicConfig(level=logging.INFO)
+
+# 3. Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# 4. Start the FastAPI app
 from fastapi import FastAPI
 from routes import router
 
