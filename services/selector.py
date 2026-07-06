@@ -183,7 +183,19 @@ Available tools:
 
 {TOOL_DESCRIPTIONS}
 
-Return ONLY JSON. Nothing else.
+Only respond to requests related to passive security analysis.
+
+If the request is unrelated to passive security analysis, return:
+
+{{
+    "unsupported": true
+}}
+Use the minimum number of tools necessary.
+
+Do NOT select another tool unless it is likely to produce meaningful new information.
+
+If the current findings are sufficient to answer the user's request, prefer finishing instead of calling another tool.
+
 
 If another tool is needed:
 
@@ -192,13 +204,13 @@ If another tool is needed:
     "tool": "<tool name>"
 }}
 
-If analysis is complete:
+If the analysis is complete:
 
 {{
     "finish": true
 }}
 
-Never return empty. Always return valid JSON
+Never return empty. return ONLY valid JSON.
 """
 
     user_message = f"""
@@ -211,9 +223,16 @@ Already executed:
 Planner feedback:
 {planner_feedback}
 
-Current findings summary:
-- Total findings so far: {len(findings)}
-- Tools used: {used_tools}
+Current findings:
+{json.dumps(findings, indent=2)}
+
+Decide whether another tool is likely to produce meaningful new information.
+
+If YES, return:
+{{"finish": false, "tool": "<tool name>"}}
+
+If NO, return:
+{{"finish": true}}
 """
 
     payload = json.dumps({
@@ -241,6 +260,10 @@ Current findings summary:
             if not raw:
                 raise ValueError("Empty response from LLM")
             decision = json.loads(raw)
+            if decision.get("unsupported"):
+                return {
+                    "unsupported": True,
+                    }
             logger.info("Cloud LLM decision: %s", decision)
 
             if decision.get("finish"):

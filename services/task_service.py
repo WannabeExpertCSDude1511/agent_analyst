@@ -72,6 +72,16 @@ class TaskService:
                       used_tools,
                       planner_feedback,
                       )
+                 if decision.get("unsupported"):
+                      logger.info("Planner rejected unsupported request.")
+                      return {
+                           "agent_id": AGENT_ID,
+                           "status": "unsupported",
+                           "response": {
+                                "summary": "Request is outside the scope of passive security analysis.",
+                                "findings": [],
+                                },
+                                }
                  if decision["finish"]:
                       logger.info(
                            "Planner finished after %d step(s).",
