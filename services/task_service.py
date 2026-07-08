@@ -105,7 +105,7 @@ class TaskService:
                  used_tools.append(tool)
 
             # Step 4: build summary + structured response
-            response_body = aggregate(findings)
+            response_body = aggregate(findings, context_data,)
 
             return {
                 "agent_id": AGENT_ID,
