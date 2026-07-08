@@ -276,7 +276,7 @@ Only if you are confident that no remaining allowed tool is likely to produce me
             method="POST",
         )
 
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=150) as resp:
             result = json.loads(resp.read().decode())
             raw = result["response"].replace("```json", "").replace("```", "").strip()
 
@@ -294,6 +294,14 @@ Only if you are confident that no remaining allowed tool is likely to produce me
                 return {"finish": True}
 
             tool = decision.get("tool")
+            
+            if tool in used_tools:
+                return {
+                    "finish": False,
+                    "tool": None,
+                    "feedback": f"'{tool}' has already been executed. Choose a different tool",
+                    }
+            
 
             if not tool or tool not in ALLOWED_TOOLS:
                 return {

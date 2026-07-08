@@ -68,7 +68,7 @@ class TaskService:
             for step in range(MAX_STEPS):
                  decision = select_next_tool(
                       request.prompt,
-                      findings,
+                      findings[-20:],
                       used_tools,
                       planner_feedback,
                       )

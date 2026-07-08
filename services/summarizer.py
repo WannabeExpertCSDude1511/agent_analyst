@@ -16,7 +16,7 @@ import urllib.request
 
 logger = logging.getLogger("agent-analyst.summarizer")
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "https://api.ollama.ai")
+OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 
@@ -90,7 +90,7 @@ Passive Findings:
             method="POST",
         )
 
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=150) as resp:
             result = json.loads(resp.read().decode())
 
         summary = result.get("response", "").strip()
