@@ -272,7 +272,7 @@ def run_mapextractor(target: str, context: dict) -> list[dict]:
             "evidence": map_url,
             "location": map_url,
         }]
-        for src in sources[:5]:  # show first 5 source files
+        for src in sources[:5]:
             findings.append({
                 "tool": "MapExtractor",
                 "type": "Info",
@@ -283,7 +283,8 @@ def run_mapextractor(target: str, context: dict) -> list[dict]:
                 "location": map_url,
             })
         return findings
-    except Exception:
+    except Exception as e:
+        logger.warning("mapextractor: no source map found for %s (%s)", target, e)
         return []
 
 
