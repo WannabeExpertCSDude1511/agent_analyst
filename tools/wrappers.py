@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import urllib.request
+from urllib.parse import urlparse
 
 logger = logging.getLogger("agent-analyst.wrappers")
 
@@ -206,7 +207,7 @@ def run_git_secrets(target: str, context: dict) -> list[dict]:
 
 def run_mapextractor(target: str, context: dict) -> list[dict]:
     """Check if a .js.map file exists alongside a JS file."""
-    if not target.endswith(".js"):
+    if not urlparse(target).path.endswith(".js"):
         return []
     map_url = target + ".map"
     try:

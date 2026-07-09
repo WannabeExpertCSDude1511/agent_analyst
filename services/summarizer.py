@@ -53,13 +53,13 @@ Summarize the passive analysis.
 
 Focus on:
 - Important discoveries
-- Interesting attack surface
+- Attack surface that should be actively investigated
 - Suspected weaknesses
 - Recommended probing priorities
 
 Do NOT list every finding.
 Do NOT output JSON.
-Keep the response under 150 words.
+Keep the response under 250 words.
 """
 
     user_message = f"""
