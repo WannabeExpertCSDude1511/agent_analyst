@@ -10,14 +10,24 @@ The summary is meant for another LLM, not for an end user.
 import json
 import logging
 import os
-import socket
-import urllib.error
-import urllib.request
+from openai import OpenAI
 
 logger = logging.getLogger("agent-analyst.summarizer")
 
-OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_BASE_URL = os.getenv(
+    "OLLAMA_BASE_URL",
+    "https://ollama.com/v1",
+)
+
+OLLAMA_MODEL = os.getenv(
+    "OLLAMA_MODEL",
+    "deepseek-v4-flash",
+)
+
+client = OpenAI(
+    base_url=OLLAMA_BASE_URL,
+    api_key=os.getenv("OLLAMA_API_KEY"),
+)
 
 
 def summarize_findings(findings: list[dict], context_data: dict) -> str:
@@ -80,25 +90,28 @@ Passive Findings:
     }).encode("utf-8")
 
     try:
-        req = urllib.request.Request(
-            f"{OLLAMA_URL}/api/generate",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY', '')}",
-            },
-            method="POST",
+        response = client.chat.completions.create(
+            model=OLLAMA_MODEL,
+            temperature=0,
+            timeout=150,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message,
+                },
+            ],
         )
 
-        with urllib.request.urlopen(req, timeout=150) as resp:
-            result = json.loads(resp.read().decode())
-
-        summary = result.get("response", "").strip()
+        summary = response.choices[0].message.content.strip()
 
         if summary:
             return summary
 
-    except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+    except Exception as e:
         logger.warning("Ollama summarization unavailable: %s", e)
 
     except Exception as e:

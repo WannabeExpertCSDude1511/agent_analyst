@@ -49,6 +49,7 @@ class TaskService:
         try:
             target = request.target
             logger.info("New task | target=%s | prompt=%s", target, request.prompt[:80])
+            
 
             # Step 1: parse what Mapper sent us
             context_data = parse_context(request.context or {})

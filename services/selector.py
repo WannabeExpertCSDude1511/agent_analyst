@@ -90,31 +90,30 @@ Do not output markdown.
     }).encode("utf-8")
 
     try:
-        req = urllib.request.Request(
-            f"{OLLAMA_URL}/api/generate",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY', '')}",
-            },
-            method="POST",
+        response = client.chat.completions.create(
+            model=OLLAMA_MODEL,temperature=0,
+            messages=[{"role": "system",
+                       "content": system_message,
+                       },
+                       {
+                           "role": "user",
+                           "content": user_message,
+                           },
+                           ],
+                           )
+        raw = response.choices[0].message.content.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        tool_list = json.loads(raw)
+        valid = [t for t in tool_list if t in ALLOWED_TOOLS]
+        if valid:
+            logger.info("Ollama selected tools: %s", valid)
+            return valid
+
+    except Exception as e:
+        logger.warning(
+            "Ollama unavailable (%s). Using keyword fallback.",
+            e,
         )
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            result = json.loads(resp.read().decode())
-            raw = result.get("response", "").strip()
-            raw = raw.replace("```json", "").replace("```", "").strip()
-            # Parse the JSON array Ollama returned
-            tool_list = json.loads(raw)
-
-            # Validate — only keep tools in our allowlist
-            valid = [t for t in tool_list if t in ALLOWED_TOOLS]
-
-            if valid:
-                logger.info("Ollama selected tools: %s", valid)
-                return valid
-
-    except (urllib.error.URLError, TimeoutError, socket.timeout) as e:
-        logger.warning("Ollama unavailable or timed out (%s). Using keyword fallback.", e)
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning("Could not parse Ollama response: %s — using keyword fallback", e)
 
@@ -265,36 +264,42 @@ Only if you are confident that no remaining allowed tool is likely to produce me
     }).encode("utf-8")
 
     try:
-        req = urllib.request.Request(
-            f"{OLLAMA_URL}/api/generate",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY', '')}",
-            },
-            method="POST",
+        response = client.chat.completions.create(
+            model=OLLAMA_MODEL,
+            temperature=0,
+            timeout=150,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message,
+                },
+            ],
         )
 
-        with urllib.request.urlopen(req, timeout=150) as resp:
-            result = json.loads(resp.read().decode())
-            raw = result["response"].replace("```json", "").replace("```", "").strip()
+        raw = response.choices[0].message.content.strip()
 
-            if not raw:
-                raise ValueError("Empty response from LLM")
-            logger.info("Raw planner response:\n%s", raw)    
-            decision = json.loads(raw)
-            if decision.get("unsupported"):
-                return {
-                    "unsupported": True,
-                    }
-            logger.info("Cloud LLM decision: %s", decision)
+        raw = raw.replace("```json", "").replace("```", "").strip()
 
-            if decision.get("finish"):
-                return {"finish": True}
+        if not raw:
+            raise ValueError("Empty response from LLM")
+        logger.info("Raw planner response:\n%s", raw)    
+        decision = json.loads(raw)
+        if decision.get("unsupported"):
+            return {
+                "unsupported": True,
+                }
+        logger.info("Cloud LLM decision: %s", decision)
 
-            tool = decision.get("tool")
+        if decision.get("finish"):
+            return {"finish": True}
+
+        tool = decision.get("tool")
             
-            if tool in used_tools:
+        if tool in used_tools:
                 return {
                     "finish": False,
                     "tool": None,
@@ -302,14 +307,14 @@ Only if you are confident that no remaining allowed tool is likely to produce me
                     }
             
 
-            if not tool or tool not in ALLOWED_TOOLS:
+        if not tool or tool not in ALLOWED_TOOLS:
                 return {
                     "finish": False,
                     "tool": None,
                     "feedback": f"'{tool}' is not an allowed tool. Choose only from: {', '.join(ALLOWED_TOOLS)}",
                     }
 
-            return {
+        return {
                 "finish": False,
                 "tool": tool,
             }
