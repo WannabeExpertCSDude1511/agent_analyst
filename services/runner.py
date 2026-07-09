@@ -25,6 +25,7 @@ logger = logging.getLogger("agent-analyst.runner")
 
 MOCK_MODE = os.getenv("TOOL_MOCK_MODE", "true").lower() == "true"
 
+
 ALLOWED_TOOLS = [
     "httpx", "trufflehog", "secretfinder", "linkfinder",
     "gitleaks", "git_secrets", "mapextractor", "jshole",
@@ -62,6 +63,7 @@ def run_tool(tool_name: str, target: str, context_data: dict) -> list[dict]:
     """
     Run a single tool across the available surface.
     """
+    logger.info("TOOL_MOCK_MODE=%s", MOCK_MODE)
 
     if tool_name not in ALLOWED_TOOLS:
         logger.warning("Blocked tool not in allowlist: %s", tool_name)
