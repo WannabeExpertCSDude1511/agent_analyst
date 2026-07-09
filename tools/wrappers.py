@@ -37,7 +37,18 @@ def _download(url: str) -> str | None:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ReconAgent/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
+            content_type = resp.headers.get("Content-Type", "").lower()
             data = resp.read()
+            if (
+                "javascript" not in content_type
+                and "json" not in content_type
+                and "text" not in content_type
+                ):
+                logger.warning(
+                    "Unexpected content type %s for %s",
+                    content_type,
+                    url,
+                    )
         fd, path = tempfile.mkstemp(suffix=".js")
         with os.fdopen(fd, "wb") as f:
             f.write(data)
@@ -131,15 +142,21 @@ def run_linkfinder(target: str, context: dict) -> list[dict]:
     findings = []
     for line in proc.stdout.splitlines():
         line = line.strip()
-        if line.startswith("/") or line.startswith("http"):
-            findings.append({
-                "tool": "LinkFinder",
-                "type": "Endpoint",
-                "severity": "Low",
-                "title": "Endpoint Discovered",
-                "description": "An endpoint was extracted from JavaScript source code.",
-                "evidence": line,
-                "location": target,
+        if (
+            not line
+            or line.startswith("[")
+            or line.startswith("INFO")
+            or line.startswith("WARNING")
+            ):
+            continue
+        findings.append({
+            "tool": "LinkFinder",
+            "type": "Endpoint",
+            "severity": "Low",
+            "title": "Endpoint Discovered",
+            "description": "An endpoint was extracted from JavaScript source code.",
+            "evidence": line,
+            "location": target,
             })
     return findings
 
@@ -253,7 +270,9 @@ def run_jshole(target: str, context: dict) -> list[dict]:
             content = f.read(200_000)
         findings = []
         # jQuery version check
-        match = re.search(r"jQuery\s+v?([\d.]+)|jquery[.-]?([\d.]+)\.min\.js", content, re.I)
+        match = re.search(r"jQuery\s+v?([\d.]+)|jquery[.-]?([\d.]+)(?:\.min)?\.js",
+                          content,
+                          re.I,)
         if match:
             version = next(g for g in match.groups() if g)
             known_vulns = {
