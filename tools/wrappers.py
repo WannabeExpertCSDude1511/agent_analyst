@@ -20,9 +20,18 @@ import tempfile
 import urllib.request
 from urllib.parse import urlparse
 
+# Add this near the top of wrappers.py right after your imports:
+EXTERNAL_DIR = os.getenv("EXTERNAL_TOOLS_DIR", "./external")
+# Force the system path to look inside your external directory first
+os.environ["PATH"] = os.path.abspath(EXTERNAL_DIR) + os.path.pathsep + os.environ.get("PATH", "")
+
+# Nuclei templates dir — explicit and overridable per-machine, so teammates
+# don't hit the "no templates provided for scan" error nuclei throws when
+# its own default config path doesn't have templates cloned yet.
+NUCLEI_TEMPLATES_DIR = os.getenv("NUCLEI_TEMPLATES_DIR", os.path.expanduser("~/nuclei-templates"))
+
 logger = logging.getLogger("agent-analyst.wrappers")
 
-EXTERNAL_DIR = os.getenv("EXTERNAL_TOOLS_DIR", "./external")
 TIMEOUT = 60  # seconds per tool call
 
 
@@ -63,6 +72,8 @@ def run_httpx(target: str, context: dict) -> list[dict]:
         logger.warning("httpx binary not found")
         return []
     proc = _run_cmd(["httpx", "-u", target, "-silent", "-json", "-status-code"])
+    if proc.returncode != 0 and proc.stderr.strip():
+        logger.warning("httpx error for %s: %s", target, proc.stderr.strip()[:200])
     findings = []
     for line in proc.stdout.strip().splitlines():
         try:
@@ -116,21 +127,32 @@ def run_secretfinder(target: str, context: dict) -> list[dict]:
     if not os.path.exists(script):
         logger.warning("SecretFinder not found at %s", script)
         return []
-    proc = _run_cmd(["python3", script, "-i", target, "-o", "cli"])
-    findings = []
-    for line in proc.stdout.splitlines():
-        line = line.strip()
-        if line:
-            findings.append({
-                "tool": "SecretFinder",
-                "type": "Secret",
-                "severity": "High",
-                "title": "Potential Secret in JS",
-                "description": "SecretFinder matched a secret pattern in the JavaScript file.",
-                "evidence": line[:80],
-                "location": target,
-            })
-    return findings
+    
+    # FIX: Download the web script content locally before scanning it
+    local = _download(target) if target.startswith("http") else target
+    if not local:
+        return []
+        
+    try:
+        proc = _run_cmd(["python3", script, "-i", local, "-o", "cli"])
+        findings = []
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if line:
+                findings.append({
+                    "tool": "SecretFinder",
+                    "type": "Secret",
+                    "severity": "High",
+                    "title": "Potential Secret in JS",
+                    "description": "SecretFinder matched a secret pattern in the JavaScript file.",
+                    "evidence": line[:80],
+                    "location": target,
+                })
+        return findings
+    finally:
+        # Clean up the temporary downloaded script from disk
+        if local != target and os.path.exists(local):
+            os.unlink(local)
 
 
 def run_linkfinder(target: str, context: dict) -> list[dict]:
@@ -138,27 +160,33 @@ def run_linkfinder(target: str, context: dict) -> list[dict]:
     if not os.path.exists(script):
         logger.warning("LinkFinder not found at %s", script)
         return []
-    proc = _run_cmd(["python3", script, "-i", target, "-o", "cli"])
+        
+    # FIX: If it's a web target, download the target file/script locally first 
+    local = _download(target) if target.startswith("http") else target
+    if not local:
+        return []
+
+    proc = _run_cmd(["python3", script, "-i", local, "-o", "cli"])
     findings = []
-    for line in proc.stdout.splitlines():
-        line = line.strip()
-        if (
-            not line
-            or line.startswith("[")
-            or line.startswith("INFO")
-            or line.startswith("WARNING")
-            ):
-            continue
-        findings.append({
-            "tool": "LinkFinder",
-            "type": "Endpoint",
-            "severity": "Low",
-            "title": "Endpoint Discovered",
-            "description": "An endpoint was extracted from JavaScript source code.",
-            "evidence": line,
-            "location": target,
+    
+    try:
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith(("[!]", "[+]", "[INFO]", "[WARNING]")):
+                continue
+            findings.append({
+                "tool": "LinkFinder",
+                "type": "Endpoint",
+                "severity": "Low",
+                "title": "Endpoint Discovered",
+                "description": "An endpoint was extracted from JavaScript source code.",
+                "evidence": line,
+                "location": target,
             })
-    return findings
+        return findings
+    finally:
+        if local != target and os.path.exists(local):
+            os.unlink(local)
 
 
 def run_gitleaks(target: str, context: dict) -> list[dict]:
@@ -301,11 +329,22 @@ def run_nuclei_passive(target: str, context: dict) -> list[dict]:
     if not shutil.which("nuclei"):
         logger.warning("nuclei not found")
         return []
+    if not os.path.isdir(NUCLEI_TEMPLATES_DIR):
+        logger.warning(
+            "nuclei templates directory not found at %s — skipping. "
+            "Clone https://github.com/projectdiscovery/nuclei-templates.git "
+            "or set NUCLEI_TEMPLATES_DIR.",
+            NUCLEI_TEMPLATES_DIR,
+        )
+        return []
     proc = _run_cmd([
         "nuclei", "-u", target,
+        "-t", NUCLEI_TEMPLATES_DIR,
         "-tags", "exposure,config,panel,headers",
-        "-passive", "-silent", "-jsonl",
-    ], timeout=120)
+        "-silent", "-jsonl",
+    ], timeout=240)
+    if proc.returncode != 0 and proc.stderr.strip():
+        logger.warning("nuclei error for %s: %s", target, proc.stderr.strip()[:200])
     findings = []
     for line in proc.stdout.strip().splitlines():
         try:
@@ -332,6 +371,8 @@ def run_httpx_enrichment(target: str, context: dict) -> list[dict]:
         "httpx", "-u", target, "-silent", "-json",
         "-status-code", "-content-type", "-server", "-tech-detect",
     ])
+    if proc.returncode != 0 and proc.stderr.strip():
+        logger.warning("httpx enrichment error for %s: %s", target, proc.stderr.strip()[:200])
     findings = []
     for line in proc.stdout.strip().splitlines():
         try:

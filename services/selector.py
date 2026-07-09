@@ -295,6 +295,25 @@ Only if you are confident that no remaining allowed tool is likely to produce me
         logger.info("Cloud LLM decision: %s", decision)
 
         if decision.get("finish"):
+            # HARD GUARD: the system prompt already instructs the model
+            # not to finish with 0 tools used, but LLMs don't reliably
+            # follow every instruction every time — this enforces it in
+            # code so a single flaky planner response can never zero out
+            # an entire scan. If the model tries to finish before running
+            # anything, we override it and force a real tool to run
+            # first via the same keyword fallback used when the LLM is
+            # unavailable.
+            if not used_tools:
+                logger.warning(
+                    "Planner returned finish=true with 0 tools used — "
+                    "overriding and forcing at least one tool to run first."
+                )
+                fallback = [t for t in _keyword_fallback(prompt) if t not in used_tools]
+                if fallback:
+                    return {"finish": False, "tool": fallback[0]}
+                # keyword fallback also found nothing — httpx is always
+                # safe/cheap to run and gives at least a liveness check
+                return {"finish": False, "tool": "httpx"}
             return {"finish": True}
 
         tool = decision.get("tool")
