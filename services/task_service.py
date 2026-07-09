@@ -74,12 +74,12 @@ class TaskService:
                                f for f in findings
                                if f.get("tool") == last_tool
                                ]
-                        planner_findings = (
+                 planner_findings = (
                                last_tool_findings
                                if len(last_tool_findings) > 20
                                else findings[-20:]
                                )
-                        decision = select_next_tool(
+                 decision = select_next_tool(
                              request.prompt,
                              planner_findings,
                              used_tools,
