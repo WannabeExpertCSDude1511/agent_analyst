@@ -67,12 +67,24 @@ class TaskService:
             used_tools = []
             MAX_STEPS = 8
             for step in range(MAX_STEPS):
-                 decision = select_next_tool(
-                      request.prompt,
-                      findings[-20:],
-                      used_tools,
-                      planner_feedback,
-                      )
+                 last_tool_findings = []
+                 if findings:
+                        last_tool = findings[-1].get("tool")
+                        last_tool_findings = [
+                               f for f in findings
+                               if f.get("tool") == last_tool
+                               ]
+                        planner_findings = (
+                               last_tool_findings
+                               if len(last_tool_findings) > 20
+                               else findings[-20:]
+                               )
+                        decision = select_next_tool(
+                             request.prompt,
+                             planner_findings,
+                             used_tools,
+                             planner_feedback,
+                             )
                  if decision.get("unsupported"):
                       logger.info("Planner rejected unsupported request.")
                       return {
