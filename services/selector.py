@@ -20,7 +20,7 @@ from openai import OpenAI
 logger = logging.getLogger("agent-analyst.selector")
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL","https://ollama.com/v1",)
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-v4-flash")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:120b")
 client = OpenAI(base_url=OLLAMA_BASE_URL,api_key=os.getenv("OLLAMA_API_KEY"),)
 
 ALLOWED_TOOLS = [
