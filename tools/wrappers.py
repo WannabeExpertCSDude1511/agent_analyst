@@ -28,7 +28,11 @@ os.environ["PATH"] = os.path.abspath(EXTERNAL_DIR) + os.path.pathsep + os.enviro
 # Nuclei templates dir — explicit and overridable per-machine, so teammates
 # don't hit the "no templates provided for scan" error nuclei throws when
 # its own default config path doesn't have templates cloned yet.
-NUCLEI_TEMPLATES_DIR = os.getenv("NUCLEI_TEMPLATES_DIR", os.path.expanduser("~/nuclei-templates"))
+NUCLEI_TEMPLATES_DIR = os.getenv("NUCLEI_TEMPLATES_DIR", os.path.expanduser("./nuclei-templates"))
+HTTPX_BINARY = os.getenv(
+    "HTTPX_BINARY",
+    "/home/kali/go/bin/httpx",
+)
 
 logger = logging.getLogger("agent-analyst.wrappers")
 
@@ -72,6 +76,10 @@ def run_httpx(target: str, context: dict) -> list[dict]:
         logger.warning("httpx binary not found")
         return []
     proc = _run_cmd(["httpx", "-u", target, "-silent", "-json", "-status-code"])
+    logger.info("httpx binary: %s", shutil.which("httpx"))
+    logger.info("httpx return code: %s", proc.returncode)
+    logger.info("httpx stdout:\n%s", proc.stdout)
+    logger.info("httpx stderr:\n%s", proc.stderr)
     if proc.returncode != 0 and proc.stderr.strip():
         logger.warning("httpx error for %s: %s", target, proc.stderr.strip()[:200])
     findings = []
