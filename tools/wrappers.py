@@ -52,6 +52,12 @@ def _download(url: str) -> str | None:
         with urllib.request.urlopen(req, timeout=15) as resp:
             content_type = resp.headers.get("Content-Type", "").lower()
             data = resp.read()
+            logger.info(
+                "Downloaded %s (%d bytes, %s)",
+                url,
+                len(data),
+                content_type,
+                )
             if (
                 "javascript" not in content_type
                 and "json" not in content_type
@@ -363,6 +369,11 @@ def run_jshole(target: str, context: dict) -> list[dict]:
     try:
         with open(local, "r", errors="ignore") as f:
             content = f.read(200_000)
+        logger.info(
+        "JSHole scanning %s (%d bytes)",
+        target,
+        len(content),
+        )
         findings = []
         # jQuery version check
         match = re.search(r"jQuery\s+v?([\d.]+)|jquery[.-]?([\d.]+)(?:\.min)?\.js",
@@ -370,6 +381,7 @@ def run_jshole(target: str, context: dict) -> list[dict]:
                           re.I,)
         if match:
             version = next(g for g in match.groups() if g)
+            logger.info("Detected jQuery version: %s", version)
             known_vulns = {
                 "1.12.4": ["CVE-2020-11022", "CVE-2020-11023"],
                 "1.11.3": ["CVE-2015-9251"],
@@ -386,6 +398,8 @@ def run_jshole(target: str, context: dict) -> list[dict]:
                 "evidence": f"jquery {version}",
                 "location": target,
             })
+        if not match:
+            logger.info("No supported JS library version detected")
         return findings
     finally:
         if local != target and os.path.exists(local):
