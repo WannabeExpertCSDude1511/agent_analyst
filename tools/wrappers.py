@@ -116,6 +116,14 @@ def run_trufflehog(target: str, context: dict) -> list[dict]:
         return []
     try:
         proc = _run_cmd(["trufflehog", "filesystem", local, "--json", "--no-update"], timeout=90)
+        if proc.returncode != 0:
+            logger.warning(
+                "Trufflehog failed for %s (exit %d)\n%s",
+                target,
+                proc.returncode,
+                proc.stderr.strip(),
+                )
+            return []
         findings = []
         for line in proc.stdout.strip().splitlines():
             try:
@@ -150,6 +158,14 @@ def run_secretfinder(target: str, context: dict) -> list[dict]:
         
     try:
         proc = _run_cmd(["python3", script, "-i", local, "-o", "cli"])
+        if proc.returncode != 0:
+            logger.warning(
+                "SecretFinder failed for %s (exit %d)\n%s",
+                target,
+                proc.returncode,
+                proc.stderr.strip(),
+                )
+            return []
         findings = []
         for line in proc.stdout.splitlines():
             line = line.strip()
@@ -182,6 +198,14 @@ def run_linkfinder(target: str, context: dict) -> list[dict]:
         return []
 
     proc = _run_cmd(["python3", script, "-i", local, "-o", "cli"])
+    if proc.returncode != 0:
+            logger.warning(
+                "LinkFinder failed for %s (exit %d)\n%s",
+                target,
+                proc.returncode,
+                proc.stderr.strip(),
+                )
+            return []
     findings = []
     
     try:
@@ -208,6 +232,7 @@ def run_gitleaks(target: str, context: dict) -> list[dict]:
     if not shutil.which("gitleaks"):
         logger.warning("gitleaks not found")
         return []
+    logger.info("Using gitleaks: %s", shutil.which("gitleaks"))
     local = _download(target) if target.startswith("http") else target
     if not local:
         return []
@@ -216,8 +241,16 @@ def run_gitleaks(target: str, context: dict) -> list[dict]:
         import shutil as sh
         sh.copy(local, os.path.join(tmp_dir, "file.js"))
         report = os.path.join(tmp_dir, "report.json")
-        _run_cmd(["gitleaks", "detect", "--source", tmp_dir, "--no-git",
+        proc=_run_cmd(["gitleaks", "detect", "--source", tmp_dir, "--no-git",
                   "--report-format", "json", "--report-path", report], timeout=90)
+        if proc.returncode != 0:
+            logger.warning(
+                "gitleaks failed for %s (exit %d)\n%s",
+                target,
+                proc.returncode,
+                proc.stderr.strip(),
+                )
+            return []
         findings = []
         if os.path.exists(report):
             with open(report) as f:
@@ -231,6 +264,10 @@ def run_gitleaks(target: str, context: dict) -> list[dict]:
                         "evidence": item.get("Match", "")[:60],
                         "location": target,
                     })
+        else:
+            logger.warning("Gitleaks completed but produced no report for %s",
+                           target,
+                           )
         return findings
     finally:
         import shutil as sh
@@ -244,10 +281,24 @@ def run_git_secrets(target: str, context: dict) -> list[dict]:
     if not shutil.which("git-secrets"):
         logger.warning("git-secrets not found")
         return []
+    logger.info("Using git-secrets: %s", shutil.which("git-secrets"))
     local = _download(target) if target.startswith("http") else target
     if not local:
         return []
     proc = _run_cmd(["git-secrets", "--scan", local])
+    if proc.returncode not in (0, 1):
+        logger.warning(
+            "git-secrets failed for %s (exit %d)\n%s",
+            target,
+            proc.returncode,
+            proc.stderr.strip(),
+            )
+        return []
+    logger.info(
+    "git-secrets stdout lines: %d, stderr lines: %d",
+    len(proc.stdout.splitlines()),
+    len(proc.stderr.splitlines()),
+    )
     findings = []
     for line in (proc.stdout + proc.stderr).splitlines():
         if line.strip():
