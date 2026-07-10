@@ -343,7 +343,7 @@ def run_nuclei_passive(target: str, context: dict) -> list[dict]:
         "nuclei", "-u", target,
     #    "-t", NUCLEI_TEMPLATES_DIR,
         "-tags", "exposure,config,panel,headers",
-        "-silent", "-jsonl",
+        "-passive", "-silent", "-jsonl",
     ], timeout=240)
     if proc.returncode != 0 and proc.stderr.strip():
         logger.warning("nuclei error for %s: %s", target, proc.stderr.strip()[:200])
