@@ -28,7 +28,7 @@ os.environ["PATH"] = os.path.abspath(EXTERNAL_DIR) + os.path.pathsep + os.enviro
 # Nuclei templates dir — explicit and overridable per-machine, so teammates
 # don't hit the "no templates provided for scan" error nuclei throws when
 # its own default config path doesn't have templates cloned yet.
-NUCLEI_TEMPLATES_DIR = os.getenv("NUCLEI_TEMPLATES_DIR", os.path.expanduser("~/nuclei-templates"))
+#NUCLEI_TEMPLATES_DIR = os.getenv("NUCLEI_TEMPLATES_DIR", os.path.expanduser("~/nuclei-templates"))
 
 logger = logging.getLogger("agent-analyst.wrappers")
 
@@ -330,17 +330,18 @@ def run_nuclei_passive(target: str, context: dict) -> list[dict]:
     if not shutil.which("nuclei"):
         logger.warning("nuclei not found")
         return []
-    if not os.path.isdir(NUCLEI_TEMPLATES_DIR):
-        logger.warning(
-            "nuclei templates directory not found at %s — skipping. "
-            "Clone https://github.com/projectdiscovery/nuclei-templates.git "
-            "or set NUCLEI_TEMPLATES_DIR.",
-            NUCLEI_TEMPLATES_DIR,
-        )
-        return []
+    
+    #if not os.path.isdir(NUCLEI_TEMPLATES_DIR):
+     #   logger.warning(
+      #      "nuclei templates directory not found at %s — skipping. "
+       #     "Clone https://github.com/projectdiscovery/nuclei-templates.git "
+        #    "or set NUCLEI_TEMPLATES_DIR.",
+         #   NUCLEI_TEMPLATES_DIR,
+        #)
+        #return []
     proc = _run_cmd([
         "nuclei", "-u", target,
-        "-t", NUCLEI_TEMPLATES_DIR,
+    #    "-t", NUCLEI_TEMPLATES_DIR,
         "-tags", "exposure,config,panel,headers",
         "-silent", "-jsonl",
     ], timeout=240)
