@@ -72,10 +72,17 @@ def _download(url: str) -> str | None:
 
 
 def run_httpx(target: str, context: dict) -> list[dict]:
-    if not shutil.which("httpx"):
-        logger.warning("httpx binary not found")
+    if not os.path.exists(HTTPX_BINARY):
+        logger.warning("ProjectDiscovery httpx not found at %s", HTTPX_BINARY)
         return []
-    proc = _run_cmd(["httpx", "-u", target, "-silent", "-json", "-status-code"])
+    proc = _run_cmd([
+        HTTPX_BINARY,
+        "-u",
+        target,
+        "-silent",
+        "-json",
+        "-status-code",
+    ])
     logger.info("httpx binary: %s", shutil.which("httpx"))
     logger.info("httpx return code: %s", proc.returncode)
     logger.info("httpx stdout:\n%s", proc.stdout)
@@ -374,11 +381,15 @@ def run_nuclei_passive(target: str, context: dict) -> list[dict]:
 
 
 def run_httpx_enrichment(target: str, context: dict) -> list[dict]:
-    if not shutil.which("httpx"):
-        logger.warning("httpx binary not found for enrichment")
+    if not os.path.exists(HTTPX_BINARY):
+        logger.warning(
+        "ProjectDiscovery httpx not found at %s",
+        HTTPX_BINARY,
+        )
         return []
+
     proc = _run_cmd([
-        "httpx", "-u", target, "-silent", "-json",
+        HTTPX_BINARY, "-u", target, "-silent", "-json",
         "-status-code", "-content-type", "-server", "-tech-detect",
     ])
     if proc.returncode != 0 and proc.stderr.strip():
