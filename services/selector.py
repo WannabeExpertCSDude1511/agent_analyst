@@ -243,9 +243,20 @@ Planner feedback:
 Current findings:
 {json.dumps(findings, indent=2)}
 
+
 Based on the user's request, the findings collected so far, the tools already executed, and any planner feedback, determine the single best next action.
 
-If the user's request is not related to passive security analysis, return {{"unsupported": true}} immediately.
+Remember:
+
+Requests referring to Scout, Mapper, upstream findings, reconnaissance, security findings, or previous pipeline stages are valid passive security analysis requests.
+
+Treat requests to analyse, assess, correlate, or prioritize security findings as within scope.
+
+Only return:
+
+{{"unsupported": true}}
+
+if the request is clearly unrelated to cybersecurity.
 
 Prefer executing another allowed tool whenever it could reasonably produce additional meaningful passive security information.
 
@@ -294,11 +305,20 @@ Only if you are confident that no remaining allowed tool is likely to produce me
             raise ValueError("Empty response from LLM")
         logger.info("Raw planner response:\n%s", raw)    
         decision = json.loads(raw)
+        PIPELINE_TERMS = ("scout","mapper","finding","findings","recon",
+                          "reconnaissance","prioritize","prioritise","assess",
+                          "assessment","security","endpoint","endpoints",
+                          "javascript","source map","http",
+                          )
         if decision.get("unsupported"):
-            return {
-                "unsupported": True,
-                }
-        logger.info("Cloud LLM decision: %s", decision)
+            prompt_lower = prompt.lower()
+            if any(term in prompt_lower for term in PIPELINE_TERMS):
+                logger.warning(
+                    "Planner incorrectly marked pipeline request as unsupported; overriding."
+                    )
+            else:
+                return {"unsupported": True}
+            logger.info("Cloud LLM decision: %s", decision)
 
         if decision.get("finish"):
             # HARD GUARD: the system prompt already instructs the model
