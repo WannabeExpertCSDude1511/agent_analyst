@@ -1,5 +1,4 @@
 """
-wrappers.py — Person B owns this file.
 
 Real tool execution — shells out to actual installed binaries on Kali.
 Only called when TOOL_MOCK_MODE=false.
