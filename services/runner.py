@@ -1,5 +1,4 @@
 """
-runner.py — Person B owns this file.
 
 Executes the selected tools and collects all their findings.
 
