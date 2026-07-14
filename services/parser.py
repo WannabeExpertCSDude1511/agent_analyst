@@ -1,5 +1,4 @@
 """
-parser.py — Person B owns this file.
 
 Reads the context JSON that comes from the Mapper agent (upstream).
 Mapper passes things like js_files and endpoints it already discovered.
