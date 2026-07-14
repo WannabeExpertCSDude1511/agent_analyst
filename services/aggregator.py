@@ -1,5 +1,4 @@
 """
-aggregator.py — Person B owns this file.
 
 Takes the flat list of findings from runner.py and builds the
 final structured response that the API returns.
