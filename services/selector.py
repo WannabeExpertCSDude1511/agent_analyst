@@ -197,7 +197,7 @@ This includes requests that ask you to:
 
 Only return:
 
-{"unsupported": true}
+{{"unsupported": true}}
 
 if the request is clearly unrelated to cybersecurity or passive web security analysis (for example, requests about cooking, mathematics, creative writing, or general conversation).
 
