@@ -316,6 +316,10 @@ Only if you are confident that no remaining allowed tool is likely to produce me
                 logger.warning(
                     "Planner incorrectly marked pipeline request as unsupported; overriding."
                     )
+                decision = {
+                    "finish": False,
+                    "tool": "httpx",
+                }
             else:
                 return {"unsupported": True}
             logger.info("Cloud LLM decision: %s", decision)
