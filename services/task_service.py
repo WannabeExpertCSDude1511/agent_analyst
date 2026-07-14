@@ -1,25 +1,4 @@
-"""
-task_service.py — Person B owns this file.
 
-This is the single integration point between your work (Person B)
-and Praneet's work (Person A).
-
-Praneet's routes.py calls exactly ONE thing:
-    TaskService.execute(request)
-
-And gets back:
-    {
-        "agent_id": "agent-analyst",
-        "status":   "completed",
-        "response": {
-            "summary":  "...",
-            "findings": [...]
-        }
-    }
-
-Everything else (parser, selector, runner, aggregator) is internal
-to this service. Praneet never touches those files.
-"""
 
 import logging
 import traceback
