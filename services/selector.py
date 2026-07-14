@@ -1,11 +1,6 @@
 """
-selector.py — Person B owns this file.
 
 Decides which tools to run based on the natural-language prompt.
-
-Uses Ollama (local LLM) to interpret the prompt and return a list
-of tool names. If Ollama is not running or times out, falls back
-to simple keyword rules so the agent always works.
 
 ALLOWED tools for agent-analyst (the allowlist):
     trufflehog, secretfinder, linkfinder, gitleaks, git_secrets,
