@@ -1,5 +1,4 @@
 """
-mock_tools.py — Person B owns this file.
 
 Fake implementations of every tool in the allowlist.
 Used when TOOL_MOCK_MODE=true (default).
