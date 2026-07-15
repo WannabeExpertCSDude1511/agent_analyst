@@ -21,7 +21,7 @@ OLLAMA_BASE_URL = os.getenv(
 
 OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
-    "deepseek-v4-flash",
+    "gpt-oss:120b",
 )
 
 client = OpenAI(
